@@ -1,0 +1,59 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap');
+@import "tailwindcss";
+@theme {
+  --color-primary: #0F766E;
+  --color-primary-hover: #0d655f;
+  --color-secondary: #155E75;
+  --color-secondary-hover: #10485a;
+  --color-brand-bg: #F7FAF9;
+  --color-surface: #FFFFFF;
+  --color-text-main: #12302F;
+  --color-muted-main: #647A78;
+  --color-border-main: #DCE8E6;
+  --color-accent-main: #F0A35B;
+  --color-accent-hover: #df9149;
+  --color-success-main: #2F9E74;
+  
+  --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  
+  --radius-card: 16px;
+  --radius-btn: 10px;
+}
+
+/* Custom global styles & scrollbar */
+html, body {
+  background-color: #F7FAF9;
+  color: #12302F;
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  scroll-behavior: smooth;
+  margin: 0;
+  padding: 0;
+}
+
+/* Custom styling utilities */
+.glassmorphism {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(220, 232, 230, 0.6);
+}
+
+.shadow-subtle {
+  box-shadow: 0 4px 20px -2px rgba(15, 118, 110, 0.05), 0 2px 8px -1px rgba(0, 0, 0, 0.02);
+}
+
+.shadow-card-hover {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.shadow-card-hover:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 30px -4px rgba(15, 118, 110, 0.08), 0 4px 12px -2px rgba(0, 0, 0, 0.03);
+}
+
+/* Fix React root element width */
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
