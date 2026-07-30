@@ -38,10 +38,10 @@ const chatRateLimit = rateLimit({
   max: 10,                // max 10 requests per window
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => {
-    // Rate-limit per authenticated user ID, falling back to IP
-    return req.headers['x-user-id'] || req.ip;
-  },
+  // SECURITY FIX: use req.userId set by requireAuth (verified JWT),
+  // NOT req.headers['x-user-id'] which is client-controlled and spoofable.
+  // requireAuth must run BEFORE this middleware (see route definition).
+  keyGenerator: (req) => req.userId || req.ip,
   handler: (req, res) => {
     res.status(429).json({
       error: 'Too many requests. Please wait a minute before sending more messages.'

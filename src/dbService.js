@@ -229,7 +229,17 @@ export const dbService = {
         .insert({ patient_id: patientId, doctor_id: doctorId, appointment_date: date, appointment_time: time, status: 'pending' })
         .select()
         .single();
+
+      // P1 FIX: handle double-booking constraint (Postgres error 23505)
+      if (error) {
+        if (error.code === '23505') {
+          throw new Error('This appointment slot is already booked. Please choose a different time.');
+        }
+        throw new Error(error.message || 'Failed to book appointment.');
+      }
+
       return data;
+
     }
   },
 

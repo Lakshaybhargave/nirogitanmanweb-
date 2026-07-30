@@ -24,16 +24,19 @@ export default function Signup() {
     setLoading(true);
     setError(null);
     try {
-      await dbService.signUp(email, password, fullName, role, { 
+      // SECURITY FIX: role is NOT passed to Supabase metadata.
+      // The DB trigger hardcodes 'patient' for all new signups.
+      // The UI role toggle is kept for UX — stored as 'initial_role'
+      // (a non-privileged field) so admins can review and promote doctors.
+      await dbService.signUp(email, password, fullName, 'patient', { 
         age: age ? parseInt(age, 10) : null, 
         gender: gender || null, 
         bloodGroup: bloodGroup || null,
         phone: phone || null,
         diet: diet || null,
-        address: address || null
+        address: address || null,
+        initial_role: role   // informational only — not used for access control
       });
-      // Registration logs user in automatically in mock, or requests email verification in remote.
-      // We redirect directly to dashboard.
       navigate('/dashboard');
     } catch (err) {
       setError(err.message || 'Registration failed. Please try again.');
@@ -193,7 +196,8 @@ export default function Signup() {
           </div>
 
           <div className="flex flex-col gap-1.5 text-left">
-            <label className="text-sm font-semibold text-text-main">I am signing up as a...</label>
+            <label className="text-sm font-semibold text-text-main">I am registering as a...</label>
+            <p className="text-xs text-muted-main -mt-1">Doctors will be reviewed and promoted by an admin after signup.</p>
             <div className="grid grid-cols-2 gap-4 mt-1">
               <button
                 type="button"
