@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { dbService } from '../dbService';
+import { supabase } from '../supabaseClient';
 import { 
   User, Activity, Calendar, ClipboardList, Shield, LogOut, CheckCircle2, 
   Clock, XCircle, Pill, MessageSquare, Send, Sparkles, Plus, Settings, 
@@ -328,9 +329,19 @@ export default function Dashboard() {
         content: msg.text
       }));
 
+      // P0 FIX: attach Supabase JWT so server can verify the user
+      const authHeaders = { 'Content-Type': 'application/json' };
+      if (supabase) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.access_token) {
+          authHeaders['Authorization'] = `Bearer ${session.access_token}`;
+          authHeaders['x-user-id'] = session.user.id;
+        }
+      }
+
       const response = await fetch('/api/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders,
         body: JSON.stringify({ messages: apiMessages, stream: true }),
       });
 

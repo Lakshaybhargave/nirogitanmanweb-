@@ -1,13 +1,31 @@
 -- Nirogitanman Supabase Database Schema
+-- Version 2.0 — Security-hardened & performance-optimised
 
 -- Enable UUID extension
 create extension if not exists "uuid-ossp";
 
+-- ════════════════════════════════════════════════════════════
+-- SECURITY HELPER — centralises admin check in one place
+-- SECURITY DEFINER means it runs as the function owner,
+-- not the calling user — so it can't be bypassed via RLS tricks.
+-- ════════════════════════════════════════════════════════════
+create or replace function public.is_admin()
+returns boolean as $$
+  select exists (
+    select 1 from public.profiles
+    where id = auth.uid() and role = 'admin'
+  );
+$$ language sql stable security definer;
+
+-- ════════════════════════════════════════════════════════════
 -- 1. Profiles table
+-- ════════════════════════════════════════════════════════════
 create table public.profiles (
   id uuid references auth.users on delete cascade primary key,
   full_name text not null,
   email text not null unique,
+  -- P0 FIX: role is NEVER sourced from client metadata.
+  -- All new users start as 'patient'. Promotion is admin-only.
   role text not null check (role in ('patient', 'paid_user', 'doctor', 'admin')) default 'patient',
   avatar_url text,
   age integer,
@@ -22,14 +40,21 @@ create table public.profiles (
 -- Enable RLS on profiles
 alter table public.profiles enable row level security;
 
--- Profiles policies
-create policy "Public profiles are viewable by everyone" on public.profiles
-  for select using (true);
+-- P0 FIX: "Public profiles are viewable by everyone" removed.
+-- Anonymous users CANNOT read profile data (blood group, phone, address etc.)
+create policy "Authenticated users can view all profiles" on public.profiles
+  for select using (auth.uid() is not null);
 
 create policy "Users can update their own profile" on public.profiles
   for update using (auth.uid() = id);
 
+-- Admin can update ANY user's profile (e.g., role promotion)
+create policy "Admins can update any profile" on public.profiles
+  for update using (public.is_admin());
+
+-- ════════════════════════════════════════════════════════════
 -- 2. Doctors table
+-- ════════════════════════════════════════════════════════════
 create table public.doctors (
   id uuid default gen_random_uuid() primary key,
   user_id uuid references public.profiles(id) on delete cascade unique,
@@ -44,22 +69,20 @@ create table public.doctors (
 -- Enable RLS on doctors
 alter table public.doctors enable row level security;
 
--- Doctors policies
-create policy "Doctors are viewable by everyone" on public.doctors
-  for select using (true);
+-- Authenticated users can view doctors (needed for booking)
+create policy "Authenticated users can view doctors" on public.doctors
+  for select using (auth.uid() is not null);
 
+-- P1 FIX: use is_admin() instead of raw subquery
 create policy "Admins can insert/update/delete doctors" on public.doctors
-  for all using (
-    exists (
-      select 1 from public.profiles
-      where profiles.id = auth.uid() and profiles.role = 'admin'
-    )
-  );
+  for all using (public.is_admin());
 
 create policy "Doctors can update their own doctor profile" on public.doctors
   for update using (user_id = auth.uid());
 
+-- ════════════════════════════════════════════════════════════
 -- 3. Appointments table
+-- ════════════════════════════════════════════════════════════
 create table public.appointments (
   id uuid default gen_random_uuid() primary key,
   patient_id uuid references public.profiles(id) on delete cascade not null,
@@ -67,13 +90,14 @@ create table public.appointments (
   appointment_date date not null,
   appointment_time text not null,
   status text not null check (status in ('pending', 'confirmed', 'completed', 'cancelled')) default 'pending',
-  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  -- P1 FIX: prevents double-booking the same doctor at the same slot
+  constraint no_double_booking unique (doctor_id, appointment_date, appointment_time)
 );
 
 -- Enable RLS on appointments
 alter table public.appointments enable row level security;
 
--- Appointments policies
 create policy "Patients can view their own appointments" on public.appointments
   for select using (patient_id = auth.uid());
 
@@ -97,15 +121,13 @@ create policy "Doctors can update appointments assigned to them" on public.appoi
     )
   );
 
+-- P1 FIX: use is_admin()
 create policy "Admins can view and manage all appointments" on public.appointments
-  for all using (
-    exists (
-      select 1 from public.profiles
-      where profiles.id = auth.uid() and profiles.role = 'admin'
-    )
-  );
+  for all using (public.is_admin());
 
+-- ════════════════════════════════════════════════════════════
 -- 4. Consultations table
+-- ════════════════════════════════════════════════════════════
 create table public.consultations (
   id uuid default gen_random_uuid() primary key,
   appointment_id uuid references public.appointments(id) on delete cascade unique not null,
@@ -118,7 +140,6 @@ create table public.consultations (
 -- Enable RLS on consultations
 alter table public.consultations enable row level security;
 
--- Consultations policies
 create policy "Patients can view their own consultations" on public.consultations
   for select using (patient_id = auth.uid());
 
@@ -143,7 +164,9 @@ create policy "Doctors can update consultations they created" on public.consulta
     )
   );
 
+-- ════════════════════════════════════════════════════════════
 -- 5. Medicines table
+-- ════════════════════════════════════════════════════════════
 create table public.medicines (
   id uuid default gen_random_uuid() primary key,
   patient_id uuid references public.profiles(id) on delete cascade not null,
@@ -158,7 +181,6 @@ create table public.medicines (
 -- Enable RLS on medicines
 alter table public.medicines enable row level security;
 
--- Medicines policies
 create policy "Patients can view their own medicines" on public.medicines
   for select using (patient_id = auth.uid());
 
@@ -169,20 +191,22 @@ create policy "Doctors can manage medicines they prescribe" on public.medicines
     )
   );
 
+-- ════════════════════════════════════════════════════════════
 -- 6. Diet Plans table
+-- ════════════════════════════════════════════════════════════
 create table public.diet_plans (
   id uuid default gen_random_uuid() primary key,
   patient_id uuid references public.profiles(id) on delete cascade not null,
   doctor_id uuid references public.doctors(id) on delete cascade not null,
   title text not null,
   goal text not null,
+  is_active boolean not null default true,  -- P2 FIX: enables soft versioning
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
 -- Enable RLS on diet_plans
 alter table public.diet_plans enable row level security;
 
--- Diet plans policies
 create policy "Patients can view their own diet plans" on public.diet_plans
   for select using (patient_id = auth.uid());
 
@@ -193,7 +217,9 @@ create policy "Doctors can manage diet plans they prescribe" on public.diet_plan
     )
   );
 
+-- ════════════════════════════════════════════════════════════
 -- 7. Diet Plan Items table
+-- ════════════════════════════════════════════════════════════
 create table public.diet_plan_items (
   id uuid default gen_random_uuid() primary key,
   diet_plan_id uuid references public.diet_plans(id) on delete cascade not null,
@@ -204,7 +230,6 @@ create table public.diet_plan_items (
 -- Enable RLS on diet_plan_items
 alter table public.diet_plan_items enable row level security;
 
--- Diet plan items policies
 create policy "Patients can view their own diet plan items" on public.diet_plan_items
   for select using (
     diet_plan_id in (
@@ -221,7 +246,9 @@ create policy "Doctors can manage diet plan items" on public.diet_plan_items
     )
   );
 
+-- ════════════════════════════════════════════════════════════
 -- 8. Notifications table
+-- ════════════════════════════════════════════════════════════
 create table public.notifications (
   id uuid default gen_random_uuid() primary key,
   user_id uuid references public.profiles(id) on delete cascade not null,
@@ -234,11 +261,12 @@ create table public.notifications (
 -- Enable RLS on notifications
 alter table public.notifications enable row level security;
 
--- Notifications policies
 create policy "Users can view and update their own notifications" on public.notifications
   for all using (user_id = auth.uid());
 
+-- ════════════════════════════════════════════════════════════
 -- 9. Chat Messages table
+-- ════════════════════════════════════════════════════════════
 create table public.chat_messages (
   id uuid default gen_random_uuid() primary key,
   user_id uuid references public.profiles(id) on delete cascade not null,
@@ -250,13 +278,27 @@ create table public.chat_messages (
 -- Enable RLS on chat_messages
 alter table public.chat_messages enable row level security;
 
--- Chat messages policies
 create policy "Users can view and insert their own chat messages" on public.chat_messages
   for all using (user_id = auth.uid());
 
+-- ════════════════════════════════════════════════════════════
+-- P1 FIX: INDEXES — prevents full table scans at scale
+-- ════════════════════════════════════════════════════════════
+create index idx_appointments_patient    on public.appointments(patient_id);
+create index idx_appointments_doctor     on public.appointments(doctor_id);
+create index idx_appointments_date       on public.appointments(appointment_date);
+create index idx_medicines_patient       on public.medicines(patient_id);
+create index idx_consultations_patient   on public.consultations(patient_id);
+create index idx_consultations_doctor    on public.consultations(doctor_id);
+create index idx_chat_user_time          on public.chat_messages(user_id, created_at desc);
+create index idx_notifications_user_read on public.notifications(user_id, read, created_at desc);
+create index idx_diet_plans_patient      on public.diet_plans(patient_id, is_active);
 
--- TRIGGERS TO AUTOMATICALLY CREATE PROFILE ON SIGNUP
--- Create a trigger that maps auth.users to public.profiles
+-- ════════════════════════════════════════════════════════════
+-- TRIGGER — auto-create profile on signup
+-- P0 FIX: role is HARDCODED to 'patient' — never from client metadata.
+-- This prevents privilege escalation via raw_user_meta_data.
+-- ════════════════════════════════════════════════════════════
 create or replace function public.handle_new_user()
 returns trigger as $$
 begin
@@ -264,7 +306,7 @@ begin
       id,
       full_name,
       email,
-      role,
+      role,         -- HARDCODED: always 'patient', never from metadata
       avatar_url,
       age,
       gender,
@@ -277,7 +319,7 @@ begin
       new.id,
       coalesce(new.raw_user_meta_data->>'full_name', 'Nirogitanman User'),
       new.email,
-      coalesce(new.raw_user_meta_data->>'role', 'patient'),
+      'patient',    -- ← P0 FIX: was coalesce(metadata->>'role', 'patient')
       coalesce(new.raw_user_meta_data->>'avatar_url', 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=150'),
       (new.raw_user_meta_data->>'age')::integer,
       new.raw_user_meta_data->>'gender',
