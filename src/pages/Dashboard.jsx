@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { dbService } from '../dbService';
+import { supabase } from '../supabaseClient';
 import { 
   User, Activity, Calendar, ClipboardList, Shield, LogOut, CheckCircle2, 
   Clock, XCircle, Pill, MessageSquare, Send, Sparkles, Plus, Settings, 
@@ -306,34 +307,97 @@ export default function Dashboard() {
   };
 
   // --- Chatbot Actions ---
-  const handleChatSubmit = (e) => {
+  const handleChatSubmit = async (e) => {
     e.preventDefault();
     if (!chatInput.trim()) return;
 
     const userMsg = { id: Date.now().toString(), text: chatInput, isBot: false };
-    setChatMessages(prev => [...prev, userMsg]);
+    // Capture current messages before state update for the API call
+    const currentMessages = [...chatMessages, userMsg];
+
+    setChatMessages(currentMessages);
     setChatInput('');
     setChatLoading(true);
 
-    setTimeout(() => {
-      let botResponse = "I can guide you with general health tips! Please try one of our suggested topics or ask about sleep, exercise, or nutrition.";
-      const query = chatInput.toLowerCase();
+    // Add a blank bot placeholder that we will fill in as chunks arrive
+    const botMsgId = (Date.now() + 1).toString();
+    setChatMessages(prev => [...prev, { id: botMsgId, text: '', isBot: true }]);
 
-      if (query.includes('breakfast') || query.includes('food') || query.includes('diet')) {
-        botResponse = "For a healthy breakfast, consider options rich in protein and fiber. Examples: Oatmeal with almonds and berries, scrambled eggs with spinach, or a healthy bowl of Greek yogurt topped with pumpkin seeds.";
-      } else if (query.includes('sleep') || query.includes('rest') || query.includes('night')) {
-        botResponse = "Improving your sleep hygiene is key! Try setting a consistent bedtime, reducing screen exposure 1 hour before sleep, keeping your room cool, and avoiding heavy meals or caffeine in the evening.";
-      } else if (query.includes('habit') || query.includes('routine') || query.includes('health')) {
-        botResponse = "Simple habits lead to lifelong health: (1) Walk at least 8,000 steps daily. (2) Drink 3 liters of water. (3) Spend 15 minutes in silent meditation. (4) Prioritize whole, unprocessed foods over snacks.";
+    try {
+      const apiMessages = currentMessages.map(msg => ({
+        role: msg.isBot ? 'assistant' : 'user',
+        content: msg.text
+      }));
+
+      // P0 FIX: attach Supabase JWT so server can verify the user
+      const authHeaders = { 'Content-Type': 'application/json' };
+      if (supabase) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.access_token) {
+          authHeaders['Authorization'] = `Bearer ${session.access_token}`;
+          authHeaders['x-user-id'] = session.user.id;
+        }
       }
 
-      setChatMessages(prev => [...prev, {
-        id: (Date.now() + 1).toString(),
-        text: botResponse,
-        isBot: true
-      }]);
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: authHeaders,
+        body: JSON.stringify({ messages: apiMessages, stream: true }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch response');
+      }
+
+      // Read the SSE stream
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let accumulated = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        // Each SSE chunk may contain multiple "data: ..." lines
+        const lines = chunk.split('\n');
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const payload = line.slice(6).trim();
+          if (payload === '[DONE]') break;
+          try {
+            const parsed = JSON.parse(payload);
+            const delta = parsed.choices?.[0]?.delta?.content;
+            if (delta) {
+              accumulated += delta;
+              // Update the placeholder message in-place
+              setChatMessages(prev =>
+                prev.map(m => m.id === botMsgId ? { ...m, text: accumulated } : m)
+              );
+            }
+          } catch {
+            // Ignore non-JSON lines (e.g. comments, empty lines)
+          }
+        }
+      }
+
+      // Final fallback if nothing was streamed
+      if (!accumulated) {
+        setChatMessages(prev =>
+          prev.map(m => m.id === botMsgId ? { ...m, text: "I'm sorry, I couldn't process that." } : m)
+        );
+      }
+    } catch (error) {
+      console.error(error);
+      setChatMessages(prev =>
+        prev.map(m => m.id === botMsgId
+          ? { ...m, text: 'Error connecting to AI service. Please try again later.' }
+          : m
+        )
+      );
+    } finally {
       setChatLoading(false);
-    }, 800);
+    }
   };
 
   const handleSuggestedPrompt = (promptText) => {
@@ -649,13 +713,37 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 text-sm">
                 <div>
                   <span className="block text-xs font-bold text-muted-main uppercase tracking-wider mb-1">Registration Date</span>
                   <span className="font-semibold text-text-main">{new Date(user.created_at || Date.now()).toLocaleDateString()}</span>
                 </div>
                 <div>
-                  <span className="block text-xs font-bold text-muted-main uppercase tracking-wider mb-1">Language Preferance</span>
+                  <span className="block text-xs font-bold text-muted-main uppercase tracking-wider mb-1">Age</span>
+                  <span className="font-semibold text-text-main">{user.age ? `${user.age} Years` : 'Not specified'}</span>
+                </div>
+                <div>
+                  <span className="block text-xs font-bold text-muted-main uppercase tracking-wider mb-1">Gender</span>
+                  <span className="font-semibold text-text-main">{user.gender || 'Not specified'}</span>
+                </div>
+                <div>
+                  <span className="block text-xs font-bold text-muted-main uppercase tracking-wider mb-1">Blood Group</span>
+                  <span className="font-semibold text-text-main">{user.blood_group || 'Not specified'}</span>
+                </div>
+                <div>
+                  <span className="block text-xs font-bold text-muted-main uppercase tracking-wider mb-1">Mobile</span>
+                  <span className="font-semibold text-text-main">{user.phone || 'Not specified'}</span>
+                </div>
+                <div>
+                  <span className="block text-xs font-bold text-muted-main uppercase tracking-wider mb-1">Diet</span>
+                  <span className="font-semibold text-text-main">{user.diet || 'Not specified'}</span>
+                </div>
+                <div className="md:col-span-2 lg:col-span-3">
+                  <span className="block text-xs font-bold text-muted-main uppercase tracking-wider mb-1">Address</span>
+                  <span className="font-semibold text-text-main whitespace-pre-wrap">{user.address || 'Not specified'}</span>
+                </div>
+                <div className="md:col-span-2 lg:col-span-3">
+                  <span className="block text-xs font-bold text-muted-main uppercase tracking-wider mb-1">Language Preference</span>
                   <span className="font-semibold text-text-main">English / Hindi</span>
                 </div>
               </div>

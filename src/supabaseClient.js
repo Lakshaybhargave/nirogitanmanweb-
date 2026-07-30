@@ -18,10 +18,10 @@ class MockDatabase {
   initMockData() {
     if (!localStorage.getItem('nirogitanman_profiles')) {
       const mockProfiles = [
-        { id: 'pat-1', full_name: 'Rahul Kumar', email: 'patient@nirogitanman.com', role: 'patient', avatar_url: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=150' },
-        { id: 'paid-1', full_name: 'Anjali Sharma', email: 'paid@nirogitanman.com', role: 'paid_user', avatar_url: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=150' },
-        { id: 'doc-1', full_name: 'Dr. Sarah Mathews', email: 'doctor@nirogitanman.com', role: 'doctor', avatar_url: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&q=80&w=150' },
-        { id: 'adm-1', full_name: 'Admin User', email: 'admin@nirogitanman.com', role: 'admin', avatar_url: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=150' }
+        { id: 'pat-1', full_name: 'Rahul Kumar', email: 'patient@nirogitanman.com', role: 'patient', avatar_url: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=150', age: 34, gender: 'Male', blood_group: 'O+', phone: '+919876543210', diet: 'Veg', address: '123 Health Ave, Mumbai, India' },
+        { id: 'paid-1', full_name: 'Anjali Sharma', email: 'paid@nirogitanman.com', role: 'paid_user', avatar_url: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=150', age: 28, gender: 'Female', blood_group: 'A-', phone: '+919876543211', diet: 'Vegan', address: '456 Wellness Blvd, Delhi, India' },
+        { id: 'doc-1', full_name: 'Dr. Sarah Mathews', email: 'doctor@nirogitanman.com', role: 'doctor', avatar_url: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&q=80&w=150', age: 42, gender: 'Female', blood_group: 'B+', phone: '+919876543212', diet: 'Non-Veg', address: '789 Clinic St, Bangalore, India' },
+        { id: 'adm-1', full_name: 'Admin User', email: 'admin@nirogitanman.com', role: 'admin', avatar_url: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=150', age: 35, gender: 'Other', blood_group: 'AB+', phone: '+919876543213', diet: 'Veg', address: '101 Server Rack, IT Park' }
       ];
       localStorage.setItem('nirogitanman_profiles', JSON.stringify(mockProfiles));
     }

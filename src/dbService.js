@@ -1,8 +1,15 @@
 import { supabase, IS_MOCK, mockDb } from './supabaseClient';
 
+// P2 FIX: Safety guard — mock mode must NEVER run in production.
+// Mock auth accepts any password, making it a critical security hole if deployed.
+if (IS_MOCK && typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+  throw new Error('FATAL: Mock mode (IS_MOCK=true) detected on a non-localhost host. Add a real VITE_SUPABASE_PUBLISHABLE_KEY to your production environment.');
+}
+
+
 export const dbService = {
   // --- AUTH SERVICES ---
-  async signUp(email, password, fullName, role) {
+  async signUp(email, password, fullName, role, additionalInfo = {}) {
     if (IS_MOCK) {
       const profiles = mockDb.getData('profiles');
       if (profiles.some(p => p.email === email)) {
@@ -10,12 +17,18 @@ export const dbService = {
       }
       const newId = 'user-' + Math.random().toString(36).substr(2, 9);
       const newProfile = {
-        id: newId,
+        id: `mock-user-${Date.now()}`,
         full_name: fullName,
         email,
         role,
         avatar_url: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=150',
-        created_at: new Date().toISOString()
+        created_at: new Date().toISOString(),
+        age: additionalInfo.age || null,
+        gender: additionalInfo.gender || null,
+        blood_group: additionalInfo.bloodGroup || null,
+        phone: additionalInfo.phone || null,
+        diet: additionalInfo.diet || null,
+        address: additionalInfo.address || null
       };
       profiles.push(newProfile);
       mockDb.setData('profiles', profiles);
@@ -28,7 +41,13 @@ export const dbService = {
         options: {
           data: {
             full_name: fullName,
-            role: role
+            role: role,
+            age: additionalInfo.age || null,
+            gender: additionalInfo.gender || null,
+            blood_group: additionalInfo.bloodGroup || null,
+            phone: additionalInfo.phone || null,
+            diet: additionalInfo.diet || null,
+            address: additionalInfo.address || null
           }
         }
       });
@@ -210,7 +229,17 @@ export const dbService = {
         .insert({ patient_id: patientId, doctor_id: doctorId, appointment_date: date, appointment_time: time, status: 'pending' })
         .select()
         .single();
+
+      // P1 FIX: handle double-booking constraint (Postgres error 23505)
+      if (error) {
+        if (error.code === '23505') {
+          throw new Error('This appointment slot is already booked. Please choose a different time.');
+        }
+        throw new Error(error.message || 'Failed to book appointment.');
+      }
+
       return data;
+
     }
   },
 
