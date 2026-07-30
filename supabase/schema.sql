@@ -10,6 +10,12 @@ create table public.profiles (
   email text not null unique,
   role text not null check (role in ('patient', 'paid_user', 'doctor', 'admin')) default 'patient',
   avatar_url text,
+  age integer,
+  gender text,
+  blood_group text,
+  phone text,
+  diet text,
+  address text,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
@@ -254,14 +260,32 @@ create policy "Users can view and insert their own chat messages" on public.chat
 create or replace function public.handle_new_user()
 returns trigger as $$
 begin
-  insert into public.profiles (id, full_name, email, role, avatar_url)
-  values (
-    new.id,
-    coalesce(new.raw_user_meta_data->>'full_name', 'Nirogitanman User'),
-    new.email,
-    coalesce(new.raw_user_meta_data->>'role', 'patient'),
-    coalesce(new.raw_user_meta_data->>'avatar_url', 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=150')
-  );
+  insert into public.profiles (
+      id,
+      full_name,
+      email,
+      role,
+      avatar_url,
+      age,
+      gender,
+      blood_group,
+      phone,
+      diet,
+      address
+    )
+    values (
+      new.id,
+      coalesce(new.raw_user_meta_data->>'full_name', 'Nirogitanman User'),
+      new.email,
+      coalesce(new.raw_user_meta_data->>'role', 'patient'),
+      coalesce(new.raw_user_meta_data->>'avatar_url', 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=150'),
+      (new.raw_user_meta_data->>'age')::integer,
+      new.raw_user_meta_data->>'gender',
+      new.raw_user_meta_data->>'blood_group',
+      new.raw_user_meta_data->>'phone',
+      new.raw_user_meta_data->>'diet',
+      new.raw_user_meta_data->>'address'
+    );
   return new;
 end;
 $$ language plpgsql security definer;

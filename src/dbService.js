@@ -2,7 +2,7 @@ import { supabase, IS_MOCK, mockDb } from './supabaseClient';
 
 export const dbService = {
   // --- AUTH SERVICES ---
-  async signUp(email, password, fullName, role) {
+  async signUp(email, password, fullName, role, additionalInfo = {}) {
     if (IS_MOCK) {
       const profiles = mockDb.getData('profiles');
       if (profiles.some(p => p.email === email)) {
@@ -10,12 +10,18 @@ export const dbService = {
       }
       const newId = 'user-' + Math.random().toString(36).substr(2, 9);
       const newProfile = {
-        id: newId,
+        id: `mock-user-${Date.now()}`,
         full_name: fullName,
         email,
         role,
         avatar_url: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=150',
-        created_at: new Date().toISOString()
+        created_at: new Date().toISOString(),
+        age: additionalInfo.age || null,
+        gender: additionalInfo.gender || null,
+        blood_group: additionalInfo.bloodGroup || null,
+        phone: additionalInfo.phone || null,
+        diet: additionalInfo.diet || null,
+        address: additionalInfo.address || null
       };
       profiles.push(newProfile);
       mockDb.setData('profiles', profiles);
@@ -28,7 +34,13 @@ export const dbService = {
         options: {
           data: {
             full_name: fullName,
-            role: role
+            role: role,
+            age: additionalInfo.age || null,
+            gender: additionalInfo.gender || null,
+            blood_group: additionalInfo.bloodGroup || null,
+            phone: additionalInfo.phone || null,
+            diet: additionalInfo.diet || null,
+            address: additionalInfo.address || null
           }
         }
       });

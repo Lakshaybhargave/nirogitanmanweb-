@@ -7,6 +7,12 @@ export default function Signup() {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [age, setAge] = useState('');
+  const [gender, setGender] = useState('');
+  const [bloodGroup, setBloodGroup] = useState('');
+  const [phone, setPhone] = useState('');
+  const [diet, setDiet] = useState('');
+  const [address, setAddress] = useState('');
   const [role, setRole] = useState('patient');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -18,7 +24,14 @@ export default function Signup() {
     setLoading(true);
     setError(null);
     try {
-      await dbService.signUp(email, password, fullName, role);
+      await dbService.signUp(email, password, fullName, role, { 
+        age: age ? parseInt(age, 10) : null, 
+        gender: gender || null, 
+        bloodGroup: bloodGroup || null,
+        phone: phone || null,
+        diet: diet || null,
+        address: address || null
+      });
       // Registration logs user in automatically in mock, or requests email verification in remote.
       // We redirect directly to dashboard.
       navigate('/dashboard');
@@ -93,6 +106,90 @@ export default function Signup() {
                 className="w-full pl-10 pr-4 py-2.5 bg-brand-bg border border-border-main rounded-[10px] focus:outline-none focus:border-primary transition-colors text-sm"
               />
             </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="flex flex-col gap-1.5 text-left">
+              <label className="text-sm font-semibold text-text-main">Age</label>
+              <input
+                type="number"
+                min="0"
+                value={age}
+                onChange={(e) => setAge(e.target.value)}
+                placeholder="Years"
+                className="w-full px-4 py-2.5 bg-brand-bg border border-border-main rounded-[10px] focus:outline-none focus:border-primary transition-colors text-sm"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5 text-left">
+              <label className="text-sm font-semibold text-text-main">Gender</label>
+              <select
+                value={gender}
+                onChange={(e) => setGender(e.target.value)}
+                className="w-full px-4 py-2.5 bg-brand-bg border border-border-main rounded-[10px] focus:outline-none focus:border-primary transition-colors text-sm"
+              >
+                <option value="">Select</option>
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-1.5 text-left">
+            <label className="text-sm font-semibold text-text-main">Blood Group</label>
+            <select
+              value={bloodGroup}
+              onChange={(e) => setBloodGroup(e.target.value)}
+              className="w-full px-4 py-2.5 bg-brand-bg border border-border-main rounded-[10px] focus:outline-none focus:border-primary transition-colors text-sm"
+            >
+              <option value="">Select (Optional)</option>
+              <option value="A+">A+</option>
+              <option value="A-">A-</option>
+              <option value="B+">B+</option>
+              <option value="B-">B-</option>
+              <option value="AB+">AB+</option>
+              <option value="AB-">AB-</option>
+              <option value="O+">O+</option>
+              <option value="O-">O-</option>
+            </select>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="flex flex-col gap-1.5 text-left">
+              <label className="text-sm font-semibold text-text-main">Mobile Number</label>
+              <input
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="+91..."
+                className="w-full px-4 py-2.5 bg-brand-bg border border-border-main rounded-[10px] focus:outline-none focus:border-primary transition-colors text-sm"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5 text-left">
+              <label className="text-sm font-semibold text-text-main">Diet Preference</label>
+              <select
+                value={diet}
+                onChange={(e) => setDiet(e.target.value)}
+                className="w-full px-4 py-2.5 bg-brand-bg border border-border-main rounded-[10px] focus:outline-none focus:border-primary transition-colors text-sm"
+              >
+                <option value="">Select</option>
+                <option value="Veg">Vegetarian</option>
+                <option value="Non-Veg">Non-Vegetarian</option>
+                <option value="Vegan">Vegan</option>
+                <option value="Eggetarian">Eggetarian</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-1.5 text-left">
+            <label className="text-sm font-semibold text-text-main">Address</label>
+            <textarea
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              placeholder="Your full address..."
+              rows={3}
+              className="w-full px-4 py-2.5 bg-brand-bg border border-border-main rounded-[10px] focus:outline-none focus:border-primary transition-colors text-sm resize-none"
+            />
           </div>
 
           <div className="flex flex-col gap-1.5 text-left">
