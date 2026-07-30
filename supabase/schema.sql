@@ -299,14 +299,27 @@ create index idx_diet_plans_patient      on public.diet_plans(patient_id, is_act
 -- P0 FIX: role is HARDCODED to 'patient' — never from client metadata.
 -- This prevents privilege escalation via raw_user_meta_data.
 -- ════════════════════════════════════════════════════════════
+-- ════════════════════════════════════════════════════════════
+-- SECURITY ADVISOR FIX: SET search_path = public
+--   Prevents schema injection attacks where a malicious schema
+--   earlier on the search_path shadows pg built-ins.
+-- SECURITY ADVISOR FIX: REVOKE EXECUTE from anon + authenticated
+--   handle_new_user is a TRIGGER function — it must only be invoked
+--   by Postgres internally on INSERT to auth.users.
+--   Exposing it via /rest/v1/rpc/ would let anyone call it directly.
+-- ════════════════════════════════════════════════════════════
 create or replace function public.handle_new_user()
-returns trigger as $$
+returns trigger
+language plpgsql
+security definer
+set search_path = public           -- ← FIX: locks search_path, prevents schema injection
+as $$
 begin
   insert into public.profiles (
       id,
       full_name,
       email,
-      role,         -- HARDCODED: always 'patient', never from metadata
+      role,
       avatar_url,
       age,
       gender,
@@ -319,7 +332,7 @@ begin
       new.id,
       coalesce(new.raw_user_meta_data->>'full_name', 'Nirogitanman User'),
       new.email,
-      'patient',    -- ← P0 FIX: was coalesce(metadata->>'role', 'patient')
+      'patient',    -- HARDCODED: always 'patient', never from client metadata
       coalesce(new.raw_user_meta_data->>'avatar_url', 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=150'),
       (new.raw_user_meta_data->>'age')::integer,
       new.raw_user_meta_data->>'gender',
@@ -330,8 +343,30 @@ begin
     );
   return new;
 end;
-$$ language plpgsql security definer;
+$$;
+
+-- Revoke REST API access — trigger functions are internal only
+revoke execute on function public.handle_new_user() from anon;
+revoke execute on function public.handle_new_user() from authenticated;
+revoke execute on function public.handle_new_user() from public;
 
 create or replace trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
+
+-- ════════════════════════════════════════════════════════════
+-- SECURITY ADVISOR FIX: rls_auto_enable
+--   Also a SECURITY DEFINER function callable by anon/authenticated
+--   via REST. Revoke access since it should only run internally.
+-- ════════════════════════════════════════════════════════════
+do $$ begin
+  if exists (
+    select 1 from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public' and p.proname = 'rls_auto_enable'
+  ) then
+    execute 'revoke execute on function public.rls_auto_enable() from anon';
+    execute 'revoke execute on function public.rls_auto_enable() from authenticated';
+    execute 'revoke execute on function public.rls_auto_enable() from public';
+  end if;
+end $$;
