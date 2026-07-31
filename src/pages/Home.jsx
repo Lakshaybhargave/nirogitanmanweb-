@@ -2,7 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
-import { Heart, Activity, ShieldCheck, ClipboardCheck, ArrowRight, Star, HelpCircle, ChevronDown } from 'lucide-react';
+import { Heart, Activity, ShieldCheck, ClipboardCheck, ArrowRight, Star, HelpCircle } from 'lucide-react';
 
 export default function Home() {
   const services = [
