@@ -36,7 +36,7 @@ export const dbService = {
       localStorage.setItem('nirogitanman_session', JSON.stringify(newProfile));
       return { data: { user: { id: newId } }, error: null };
     } else {
-      const { data, error } = await supabase.auth.signUp({
+      const { data } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -67,7 +67,7 @@ export const dbService = {
       localStorage.setItem('nirogitanman_session', JSON.stringify(user));
       return { data: { user: { id: user.id }, session: { user } }, error: null };
     } else {
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const { data } = await supabase.auth.signInWithPassword({
         email,
         password
       });
@@ -108,7 +108,7 @@ export const dbService = {
     if (IS_MOCK) {
       return mockDb.getData('doctors');
     } else {
-      const { data, error } = await supabase.from('doctors').select('*');
+      const { data } = await supabase.from('doctors').select('*');
       return data || [];
     }
   },
@@ -140,7 +140,7 @@ export const dbService = {
       mockDb.setData('doctors', doctors);
       return updatedDoctor;
     } else {
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('doctors')
         .upsert({ user_id: userId, ...doctorData })
         .select()
@@ -201,7 +201,7 @@ export const dbService = {
         query = query.eq('patient_id', userId);
       }
       
-      const { data, error } = await query;
+      const { data } = await query;
       return (data || []).map(a => ({
         ...a,
         doctor: a.doctor ? { ...a.doctor, full_name: a.doctor.profiles?.full_name || 'Doctor' } : null
@@ -225,7 +225,7 @@ export const dbService = {
       mockDb.setData('appointments', appointments);
       return newApt;
     } else {
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('appointments')
         .insert({ patient_id: patientId, doctor_id: doctorId, appointment_date: date, appointment_time: time, status: 'pending' })
         .select()
@@ -255,7 +255,7 @@ export const dbService = {
       }
       return null;
     } else {
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('appointments')
         .update({ status })
         .eq('id', appointmentId)
@@ -340,7 +340,7 @@ export const dbService = {
 
       await supabase.from('appointments').update({ status: 'completed' }).eq('id', appointmentId);
 
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('consultations')
         .insert({ appointment_id: appointmentId, doctor_id: doc.id, patient_id: patientId, notes })
         .select()
@@ -402,7 +402,7 @@ export const dbService = {
       const { data: doc } = await supabase.from('doctors').select('id').eq('user_id', doctorUserId).single();
       if (!doc) throw new Error('Doctor not found');
 
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('medicines')
         .insert({
           patient_id: patientId,
@@ -514,7 +514,7 @@ export const dbService = {
       }
       return null;
     } else {
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('profiles')
         .update({ role })
         .eq('id', userId)

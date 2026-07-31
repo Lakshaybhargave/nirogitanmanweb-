@@ -4,8 +4,8 @@ import { dbService } from '../dbService';
 import { supabase } from '../supabaseClient';
 import { 
   User, Activity, Calendar, ClipboardList, Shield, LogOut, CheckCircle2, 
-  Clock, XCircle, Pill, MessageSquare, Send, Sparkles, Plus, Settings, 
-  Users, Trash2, Heart, Award, ArrowUpCircle, RefreshCw, Star, Info
+  Pill, MessageSquare, Send, Sparkles, Plus, 
+  Users, Heart, Award, ArrowUpCircle, RefreshCw, Info
 } from 'lucide-react';
 
 export default function Dashboard() {
@@ -17,7 +17,6 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [doctors, setDoctors] = useState([]);
   const [appointments, setAppointments] = useState([]);
-  const [consultations, setConsultations] = useState([]);
   const [medicines, setMedicines] = useState([]);
   const [dietPlan, setDietPlan] = useState(null);
   const [adminUsers, setAdminUsers] = useState([]);
@@ -138,7 +137,7 @@ export default function Dashboard() {
     } else {
       setActiveTab('overview');
     }
-  }, [location.pathname, user]);
+  }, [location.pathname, user, navigate]);
 
   const handleTabClick = (tabId) => {
     if (tabId === 'overview') {

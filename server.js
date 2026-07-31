@@ -20,10 +20,10 @@ const port = process.env.PORT || 3001;
 const NVIDIA_API_URL = 'https://integrate.api.nvidia.com/v1/chat/completions';
 const NVIDIA_MODEL   = 'openai/gpt-oss-20b';
 
-// ── Supabase admin client (server-side only, uses service role key if available)
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_KEY || 'dummy-key-for-dev-mode';
 const supabaseAdmin = createClient(
   process.env.VITE_SUPABASE_URL || 'https://jihslpykhcmwothdsiej.supabase.co',
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_KEY || ''
+  supabaseKey
 );
 
 app.use(cors());
