@@ -118,6 +118,18 @@ app.post('/api/chat', requireAuth, chatRateLimit, async (req, res) => {
     // Sanitise: cap conversation history to last 20 messages to prevent token abuse
     const recentMessages = messages.slice(-20);
 
+    // Save the user's latest message to Supabase
+    if (req.userId && req.userId !== 'dev-user') {
+      const lastUserMessage = recentMessages[recentMessages.length - 1];
+      if (lastUserMessage && lastUserMessage.role === 'user') {
+        await supabaseAdmin.from('chat_messages').insert({
+          user_id: req.userId,
+          message: lastUserMessage.content,
+          is_bot: false
+        }).catch(err => console.error('Failed to save user message:', err));
+      }
+    }
+
     // Prepend system prompt
     const fullMessages = [SYSTEM_PROMPT, ...recentMessages];
 
@@ -169,14 +181,42 @@ app.post('/api/chat', requireAuth, chatRateLimit, async (req, res) => {
       // Pipe the NVIDIA SSE stream back to the client
       const reader = nvidiaRes.body.getReader();
       const decoder = new TextDecoder();
+      let assistantMessage = '';
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        res.write(decoder.decode(value, { stream: true }));
+        
+        const chunk = decoder.decode(value, { stream: true });
+        res.write(chunk);
+        
+        // Try to accumulate assistant message for saving
+        if (req.userId && req.userId !== 'dev-user') {
+          const lines = chunk.split('\n');
+          for (const line of lines) {
+            if (line.startsWith('data: ') && line.slice(6).trim() !== '[DONE]') {
+              try {
+                const parsed = JSON.parse(line.slice(6).trim());
+                if (parsed.choices?.[0]?.delta?.content) {
+                  assistantMessage += parsed.choices[0].delta.content;
+                }
+              } catch (e) {}
+            }
+          }
+        }
       }
 
       res.end();
+
+      // Save assistant message to Supabase
+      if (req.userId && req.userId !== 'dev-user' && assistantMessage) {
+        await supabaseAdmin.from('chat_messages').insert({
+          user_id: req.userId,
+          message: assistantMessage,
+          is_bot: true
+        }).catch(err => console.error('Failed to save bot message:', err));
+      }
+
       return;
     }
 
@@ -208,7 +248,18 @@ app.post('/api/chat', requireAuth, chatRateLimit, async (req, res) => {
     }
 
     const data = await nvidiaRes.json();
-    res.json({ reply: data.choices[0].message.content });
+    const replyContent = data.choices[0].message.content;
+
+    // Save assistant message to Supabase
+    if (req.userId && req.userId !== 'dev-user' && replyContent) {
+      await supabaseAdmin.from('chat_messages').insert({
+        user_id: req.userId,
+        message: replyContent,
+        is_bot: true
+      }).catch(err => console.error('Failed to save bot message:', err));
+    }
+
+    res.json({ reply: replyContent });
 
   } catch (error) {
     console.error('Server Error:', error);

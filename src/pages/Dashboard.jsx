@@ -227,6 +227,10 @@ export default function Dashboard() {
   const handleSaveConsultation = async (e) => {
     e.preventDefault();
     if (!selectedApt) return;
+    if (!consultationNotes.trim()) {
+      alert('Please enter consultation notes before saving.');
+      return;
+    }
     try {
       await dbService.addConsultationNotes(
         selectedApt.id,
@@ -246,6 +250,10 @@ export default function Dashboard() {
   const handleAddMedicine = async (e) => {
     e.preventDefault();
     if (!selectedApt) return;
+    if (!medName.trim() || !medInstructions.trim() || !medStartDate || !medEndDate) {
+      alert('Please fill out all medicine details (name, instructions, dates).');
+      return;
+    }
     try {
       await dbService.addMedicine(selectedApt.patient_id, user.id, {
         name: medName,
@@ -267,6 +275,14 @@ export default function Dashboard() {
   const handleSaveDietPlan = async (e) => {
     e.preventDefault();
     if (!selectedApt) return;
+    if (!dietTitle.trim() || !dietGoal.trim()) {
+      alert('Please provide a title and goal for the diet plan.');
+      return;
+    }
+    if (!dietBreakfast.trim() || !dietLunch.trim() || !dietDinner.trim()) {
+      alert('Please provide at least breakfast, lunch, and dinner recommendations.');
+      return;
+    }
     try {
       const items = [
         { meal_type: 'breakfast', description: dietBreakfast },

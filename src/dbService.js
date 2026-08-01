@@ -43,6 +43,7 @@ export const dbService = {
           data: {
             full_name: fullName,
             role: role,
+            initial_role: additionalInfo.initial_role || null,
             age: additionalInfo.age || null,
             gender: additionalInfo.gender || null,
             blood_group: additionalInfo.bloodGroup || null,
@@ -140,11 +141,12 @@ export const dbService = {
       mockDb.setData('doctors', doctors);
       return updatedDoctor;
     } else {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('doctors')
         .upsert({ user_id: userId, ...doctorData })
         .select()
         .single();
+      if (error) throw new Error(error.message || 'Failed to create or update doctor profile');
       return data;
     }
   },
@@ -225,7 +227,7 @@ export const dbService = {
       mockDb.setData('appointments', appointments);
       return newApt;
     } else {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('appointments')
         .insert({ patient_id: patientId, doctor_id: doctorId, appointment_date: date, appointment_time: time, status: 'pending' })
         .select()
@@ -255,12 +257,13 @@ export const dbService = {
       }
       return null;
     } else {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('appointments')
         .update({ status })
         .eq('id', appointmentId)
         .select()
         .single();
+      if (error) throw new Error(error.message || 'Failed to update appointment status');
       return data;
     }
   },
@@ -335,16 +338,18 @@ export const dbService = {
       mockDb.setData('consultations', consultations);
       return newConsultation;
     } else {
-      const { data: doc } = await supabase.from('doctors').select('id').eq('user_id', doctorUserId).single();
-      if (!doc) throw new Error('Doctor not found');
+      const { data: doc, error: docError } = await supabase.from('doctors').select('id').eq('user_id', doctorUserId).single();
+      if (docError || !doc) throw new Error('Doctor not found');
 
-      await supabase.from('appointments').update({ status: 'completed' }).eq('id', appointmentId);
+      const { error: updateError } = await supabase.from('appointments').update({ status: 'completed' }).eq('id', appointmentId);
+      if (updateError) throw new Error(updateError.message || 'Failed to update appointment');
 
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('consultations')
         .insert({ appointment_id: appointmentId, doctor_id: doc.id, patient_id: patientId, notes })
         .select()
         .single();
+      if (error) throw new Error(error.message || 'Failed to add consultation notes');
       return data;
     }
   },
@@ -399,10 +404,10 @@ export const dbService = {
       mockDb.setData('medicines', medicines);
       return newMedicine;
     } else {
-      const { data: doc } = await supabase.from('doctors').select('id').eq('user_id', doctorUserId).single();
-      if (!doc) throw new Error('Doctor not found');
+      const { data: doc, error: docError } = await supabase.from('doctors').select('id').eq('user_id', doctorUserId).single();
+      if (docError || !doc) throw new Error('Doctor not found');
 
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('medicines')
         .insert({
           patient_id: patientId,
@@ -414,6 +419,7 @@ export const dbService = {
         })
         .select()
         .single();
+      if (error) throw new Error(error.message || 'Failed to add medicine');
       return data;
     }
   },
@@ -514,12 +520,13 @@ export const dbService = {
       }
       return null;
     } else {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('profiles')
         .update({ role })
         .eq('id', userId)
         .select()
         .single();
+      if (error) throw new Error(error.message || 'Failed to update user role');
       return data;
     }
   }

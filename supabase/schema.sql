@@ -27,6 +27,7 @@ create table public.profiles (
   -- P0 FIX: role is NEVER sourced from client metadata.
   -- All new users start as 'patient'. Promotion is admin-only.
   role text not null check (role in ('patient', 'paid_user', 'doctor', 'admin')) default 'patient',
+  initial_role text,
   avatar_url text,
   age integer,
   gender text,
@@ -320,6 +321,7 @@ begin
       full_name,
       email,
       role,
+      initial_role,
       avatar_url,
       age,
       gender,
@@ -333,6 +335,7 @@ begin
       coalesce(new.raw_user_meta_data->>'full_name', 'Nirogitanman User'),
       new.email,
       'patient',    -- HARDCODED: always 'patient', never from client metadata
+      new.raw_user_meta_data->>'initial_role',
       coalesce(new.raw_user_meta_data->>'avatar_url', 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=150'),
       (new.raw_user_meta_data->>'age')::integer,
       new.raw_user_meta_data->>'gender',
